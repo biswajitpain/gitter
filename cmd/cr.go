@@ -3,8 +3,8 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"gitter/internal/config"
-	"gitter/internal/llm"
+	"github.com/biswajitpain/gitter/internal/config"
+	"github.com/biswajitpain/gitter/internal/llm"
 	"os"
 	"os/exec"
 	"path/filepath"

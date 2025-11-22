@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gitter/internal/config"
+	"github.com/biswajitpain/gitter/internal/config"
 	"net/http"
 	"time"
 )

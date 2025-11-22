@@ -1,6 +1,6 @@
 package main
 
-import "gitter/cmd"
+import "github.com/biswajitpain/gitter/cmd"
 
 func main() {
 	cmd.Execute()

@@ -1,4 +1,4 @@
-module gitter
+module github.com/biswajitpain/gitter
 
 go 1.23
 

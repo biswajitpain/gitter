@@ -1,7 +1,7 @@
 package config_test
 
 import (
-	"gitter/internal/config"
+	"github.com/biswajitpain/gitter/internal/config"
 	"os"
 	"path/filepath"
 	"testing"

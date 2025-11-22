@@ -2,8 +2,8 @@ package llm_test
 
 import (
 	"encoding/json"
-	"gitter/internal/config"
-	"gitter/internal/llm"
+	"github.com/biswajitpain/gitter/internal/config"
+	"github.com/biswajitpain/gitter/internal/llm"
 	"net/http"
 	"net/http/httptest"
 	"testing"

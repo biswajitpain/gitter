@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"gitter/internal/config"
+	"github.com/biswajitpain/gitter/internal/config"
 	"os"
 
 	"github.com/spf13/cobra"
