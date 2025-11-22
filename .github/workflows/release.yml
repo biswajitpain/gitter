@@ -21,7 +21,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: "1.18" # Specify your Go version
+          go-version: "1.23" # Specify your Go version
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v4
