@@ -13,10 +13,8 @@ var rootCmd = &cobra.Command{
 	Short: "gitter is a smart git wrapper",
 	Long: `gitter is a command-line wrapper for Git that enhances your commit workflow 
 with an intelligent "commit review" (cr) command and LLM-powered message generation.`,
-	// This is the core of the git passthrough logic.
-	// We disable flag parsing for the root command and check if the
-	// command is one of our own. If not, we pass it to git.
-	DisableFlagParsing: true,
+	// Disable Cobra's default "unknown command" error and let our Run function handle it.
+	// This allows us to pass unknown commands directly to git.
 	Run: func(cmd *cobra.Command, args []string) {
 		// Check if 'git' is available.
 		if _, err := exec.LookPath("git"); err != nil {
@@ -30,9 +28,8 @@ with an intelligent "commit review" (cr) command and LLM-powered message generat
 			return
 		}
 
-		// Check if the command is one of ours. If so, Cobra has already handled it.
-		// This Run function only executes for commands that are NOT registered with Cobra.
-		// So, we can assume it's a git command.
+		// If we reach here, it means Cobra didn't find a matching subcommand.
+		// So, we assume it's a git command and pass all arguments to git.
 		gitCmd := exec.Command("git", args...)
 		gitCmd.Stdin = os.Stdin
 		gitCmd.Stdout = os.Stdout
@@ -58,7 +55,8 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
+	// Disable Cobra's default error and usage printing for unknown commands.
+	// This allows the Run function of rootCmd to handle the passthrough to git.
+	rootCmd.SilenceErrors = true
+	rootCmd.SilenceUsage = true
 }
