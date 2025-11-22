@@ -1,0 +1,49 @@
+# .goreleaser.yml
+# Visit https://goreleaser.com for documentation on how to customize this
+# behavior.
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+builds:
+  - # The main build configuration for the gitter binary.
+    # GOOS and GOARCH matrix will be populated by GoReleaser by default.
+    id: "gitter"
+    # The main entry point for the application.
+    main: .
+    # The name of the binary.
+    binary: gitter
+    # LDFlags to embed version information.
+    ldflags:
+      - -s -w -X gitter/cmd.version={{.Version}}
+
+archives:
+  - # Archive format configuration.
+    # This creates .tar.gz for Linux/macOS and .zip for Windows.
+    format: "tar.gz"
+    # You can add additional files to the archive here
+    files:
+      - "README.md"
+
+checksum:
+  # Algorithm to use for checksums.
+  name_template: "checksums.txt"
+
+snapshot:
+  # Config for builds from the main branch (snapshots).
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  # Sorts the changelog by date.
+  sort: "asc"
+  filters:
+    # Excludes certain commit messages from the changelog.
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "merge conflict"
+
+# The release section configures how the GitHub Release is created.
+release:
+  # If set to true, will not auto-publish the release.
+  draft: false

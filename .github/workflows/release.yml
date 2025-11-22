@@ -1,0 +1,36 @@
+# .github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    # This workflow runs on pushes to the repository, but only for tags
+    # that match the pattern v*.*.* (e.g., v1.0.0, v1.2.3).
+    tags:
+      - "v*.*.*"
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          # This is required to allow GoReleaser to fetch all tags.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.18" # Specify your Go version
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          # The version of GoReleaser to use.
+          version: latest
+          # The arguments to pass to GoReleaser.
+          args: release --clean
+        env:
+          # This token is required to create a GitHub Release.
+          # It's automatically provided by GitHub Actions.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
