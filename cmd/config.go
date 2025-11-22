@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/biswajitpain/gitter/internal/config"
-	"os"
+
 
 	"github.com/spf13/cobra"
 )
@@ -22,16 +22,15 @@ Currently supports OpenAI.
 
 Example:
 gitter config --provider openai --api-key sk-...`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if provider == "" && apiKey == "" {
 			cmd.Help()
-			os.Exit(0)
+			return nil // Showing help is not an error, return nil
 		}
 
 		cfg, err := config.LoadConfig()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error loading existing config: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error loading existing config: %w", err)
 		}
 
 		if provider != "" {
@@ -42,8 +41,7 @@ gitter config --provider openai --api-key sk-...`,
 		}
 
 		if err := config.SaveConfig(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error saving config: %w", err)
 		}
 
 		fmt.Println("Configuration updated successfully.")
@@ -53,6 +51,7 @@ gitter config --provider openai --api-key sk-...`,
 		if cfg.APIKey != "" {
 			fmt.Println("API Key: [set]")
 		}
+		return nil // Success, return nil
 	},
 }
 

@@ -6,129 +6,234 @@ import (
 	"github.com/biswajitpain/gitter/internal/config"
 	"github.com/biswajitpain/gitter/internal/llm"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 )
 
 // crCmd represents the cr command
+
 var crCmd = &cobra.Command{
+
 	Use:   "cr",
+
 	Short: "Create a commit with an AI-generated message",
+
 	Long: `The 'cr' command automates the commit process.
+
 It stages files, generates a diff, and uses an LLM (if configured) 
+
 to create a conventional commit message.`,
-	Run: handleCrCommand,
+
+	RunE: handleCrCommand,
+
 }
+
+
 
 func init() {
+
 	rootCmd.AddCommand(crCmd)
+
 }
+
+
 
 // fileChangeStats holds the statistics for a single changed file.
+
 type fileChangeStats struct {
+
 	filePath     string
+
 	linesChanged int
+
 	charsChanged int
+
 }
 
-func handleCrCommand(cmd *cobra.Command, args []string) {
+
+
+func handleCrCommand(cmd *cobra.Command, args []string) error {
+
 	// 1. Check if we are in a git repository.
-	gitCheckCmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+
+	gitCheckCmd := execCommand("git", "rev-parse", "--is-inside-work-tree")
+
 	if err := gitCheckCmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Not a git repository. (%v)\n", err)
-		os.Exit(1)
+
+		return fmt.Errorf("not a git repository: %w", err)
+
 	}
+
+
 
 	reader := bufio.NewReader(os.Stdin)
 
+
+
 	// 2. Check for staged changes.
-	stagedCheckCmd := exec.Command("git", "diff", "--cached", "--quiet")
+
+	stagedCheckCmd := execCommand("git", "diff", "--cached", "--quiet")
+
 	if stagedCheckCmd.Run() != nil { // Exits with 1 if no staged changes
+
 		fmt.Print("No files are currently staged. Would you like to stage all changed files? (y/n): ")
+
 		stageAllInput, _ := reader.ReadString('\n')
+
 		stageAllInput = strings.TrimSpace(strings.ToLower(stageAllInput))
 
+
+
 		if stageAllInput == "y" {
+
 			fmt.Println("Staging all changed files...")
-			if err := exec.Command("git", "add", ".").Run(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error staging changes: %v\n", err)
-				os.Exit(1)
+
+			if err := execCommand("git", "add", ".").Run(); err != nil {
+
+				return fmt.Errorf("error staging changes: %w", err)
+
 			}
+
 		} else {
+
 			fmt.Println("Operation cancelled. No files were staged.")
-			os.Exit(0)
+
+			return nil
+
 		}
+
 	} else {
+
 		fmt.Println("Working on currently staged changes.")
+
 	}
+
+
 
 	// 3. Get the diff of staged changes.
+
 	fmt.Println("Generating diff...")
-	diffCmd := exec.Command("git", "diff", "--staged")
+
+	diffCmd := execCommand("git", "diff", "--staged")
+
 	diffOutputBytes, err := diffCmd.Output()
+
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting diff: %v\n", err)
-		os.Exit(1)
+
+		return fmt.Errorf("error getting diff: %w", err)
+
 	}
+
 	diffOutput := string(diffOutputBytes)
 
+
+
 	if strings.TrimSpace(diffOutput) == "" {
+
 		fmt.Println("No changes to commit.")
-		exec.Command("git", "reset").Run()
-		os.Exit(0)
+
+		execCommand("git", "reset").Run()
+
+		return nil
+
 	}
+
+
 
 	// 4. Parse the diff to get stats.
+
 	stats := parseDiffStats(diffOutput)
 
+
+
 	// 5. Ask the user for a commit message.
+
 	fmt.Print("Please enter a commit message (or press Enter for a default):\n> ")
+
 	userMessage, _ := reader.ReadString('\n')
+
 	userMessage = strings.TrimSpace(userMessage)
 
+
+
 	if userMessage == "" {
+
 		userMessage = createDefaultCommitMessage()
+
 		fmt.Printf("No commit message provided. Using default: \"%s\"\n", userMessage)
+
 	}
+
+
 
 	// 6. Generate a nice commit message.
+
 	generatedMessage := generateCommitMessage(userMessage, diffOutput, stats)
 
+
+
 	// 7. Ask for confirmation.
+
 	fmt.Println("\n--- Generated Commit Message ---")
+
 	fmt.Print(generatedMessage)
+
 	fmt.Println("\n--------------------------------")
+
 	fmt.Print("Confirm commit with this message? (y/n): ")
+
 	confirmInput, _ := reader.ReadString('\n')
+
 	confirmInput = strings.TrimSpace(strings.ToLower(confirmInput))
 
+
+
 	if confirmInput == "y" {
+
 		// 8. Commit.
+
 		fmt.Println("Committing...")
-		commitCmd := exec.Command("git", "commit", "-m", generatedMessage)
+
+		commitCmd := execCommand("git", "commit", "-m", generatedMessage)
+
 		if err := commitCmd.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error committing: %v\n", err)
-			os.Exit(1)
+
+			return fmt.Errorf("error committing: %w", err)
+
 		}
+
 		fmt.Println("Commit successful.")
+
 	} else {
+
 		fmt.Println("Commit cancelled. Changes are still staged.")
+
 		fmt.Print("Would you like to unstage the changes? (y/n): ")
+
 		unstageInput, _ := reader.ReadString('\n')
+
 		unstageInput = strings.TrimSpace(strings.ToLower(unstageInput))
+
 		if unstageInput == "y" {
-			if err := exec.Command("git", "reset").Run(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error unstaging changes: %v\n", err)
+
+			if err := execCommand("git", "reset").Run(); err != nil {
+
+				fmt.Fprintf(os.Stderr, "Error unstaging changes: %v\n", err) // Print, but don't exit if unstage fails
+
 			} else {
+
 				fmt.Println("Changes have been unstaged.")
+
 			}
+
 		}
-		os.Exit(0)
+
 	}
+
+	return nil
+
 }
 
 func parseDiffStats(diffOutput string) []fileChangeStats {
@@ -144,14 +249,19 @@ func parseDiffStats(diffOutput string) []fileChangeStats {
 		var currentFile string
 		var linesChanged, charsChanged int
 
+		// Find the file path from the "+++ b/" line
 		for _, line := range lines {
-			if strings.HasPrefix(line, "---") {
-				currentFile = strings.TrimPrefix(line, "--- a/")
+			if strings.HasPrefix(line, "+++ b/") {
+				currentFile = strings.TrimPrefix(line, "+++ b/")
+				// Handle cases where the file is deleted (e.g., +++ b/dev/null)
+				if currentFile == "/dev/null" {
+					currentFile = "" // Or handle as appropriate for deletions
+				}
 				break
 			}
 		}
 		if currentFile == "" {
-			continue
+			continue // Skip if no valid file path found (e.g., for deletions where we don't want stats)
 		}
 
 		for _, line := range lines {
@@ -171,16 +281,19 @@ func parseDiffStats(diffOutput string) []fileChangeStats {
 }
 
 func createDefaultCommitMessage() string {
-	repoPath, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	repoPath, err := execCommand("git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not determine repo name for default commit message: %v\n", err)
 		return "new git commit" // Fallback default
 	}
 	repoName := filepath.Base(strings.TrimSpace(string(repoPath)))
 
-dateStr := time.Now().Format("2006-01-02")
+	dateStr := timeNow().Format("2006-01-02")
 	return fmt.Sprintf("new git commit on %s %s", repoName, dateStr)
 }
+
+// newLLMClientFunc is a package-level variable to allow mocking llm.NewLLMClient in tests.
+var newLLMClientFunc = llm.NewLLMClient
 
 func generateCommitMessage(userMessage, diffOutput string, stats []fileChangeStats) string {
 	cfg, err := config.LoadConfig()
@@ -188,7 +301,7 @@ func generateCommitMessage(userMessage, diffOutput string, stats []fileChangeSta
 		fmt.Fprintf(os.Stderr, "Warning: could not load config, using simple message generator: %v\n", err)
 	}
 
-	llmClient, err := llm.NewLLMClient(cfg)
+	llmClient, err := newLLMClientFunc(cfg)
 	if err == nil {
 		fmt.Printf("Generating commit message with %s...\n", cfg.Provider)
 		llmMessage, err := llmClient.GenerateCommitMessage(diffOutput, userMessage)
