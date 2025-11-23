@@ -654,8 +654,8 @@ func parseDiffStats(diffOutput string) []fileChangeStats {
 				break
 			}
 		}
-		if currentFile == "" {
-			continue // Skip if no valid file path found (e.g., for deletions where we don't want stats)
+		if currentFile == "" || currentFile == "/dev/null" {
+			continue // Skip if no valid file path found or if it's /dev/null
 		}
 
 		for _, line := range lines {
