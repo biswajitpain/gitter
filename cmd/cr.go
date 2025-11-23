@@ -142,61 +142,143 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 
 
-	// 4. Parse the diff to get stats.
-
-	stats := parseDiffStats(diffOutput)
+		// 4. Parse the diff to get stats.
 
 
 
-	// 5. Ask the user for a commit message.
-
-	fmt.Print("Please enter a commit message (or press Enter for a default):\n> ")
-
-	userMessage, _ := reader.ReadString('\n')
-
-	userMessage = strings.TrimSpace(userMessage)
+		stats := parseDiffStats(diffOutput)
 
 
 
-	if userMessage == "" {
-
-		userMessage = createDefaultCommitMessage()
-
-		fmt.Printf("No commit message provided. Using default: \"%s\"\n", userMessage)
-
-	}
+	
 
 
 
-	// 6. Generate a nice commit message.
-
-	generatedMessage := generateCommitMessage(userMessage, diffOutput, stats)
+		// 5. Generate an initial commit message (LLM or simple).
 
 
 
-	// 7. Ask for confirmation.
-
-	fmt.Println("\n--- Generated Commit Message ---")
-
-	fmt.Print(generatedMessage)
-
-	fmt.Println("\n--------------------------------")
-
-	fmt.Print("Confirm commit with this message? (y/n): ")
-
-	confirmInput, _ := reader.ReadString('\n')
-
-	confirmInput = strings.TrimSpace(strings.ToLower(confirmInput))
+		// This will be used as a suggestion to the user.
 
 
 
-	if confirmInput == "y" {
+		suggestedMessage := generateCommitMessage("", diffOutput, stats) // Pass empty user message for initial generation
 
-		// 8. Commit.
 
-		fmt.Println("Committing...")
 
-		commitCmd := execCommand("git", "commit", "-m", generatedMessage)
+	
+
+
+
+		// 6. Ask the user for a commit message, providing the suggestion.
+
+
+
+		fmt.Printf("Please enter a commit message (or press Enter to use the suggestion):\n\n")
+
+
+
+		fmt.Printf("--- Suggested Commit Message ---\n%s\n--------------------------------\n", suggestedMessage)
+
+
+
+		fmt.Print("> ")
+
+
+
+		userMessage, _ := reader.ReadString('\n')
+
+
+
+		userMessage = strings.TrimSpace(userMessage)
+
+
+
+	
+
+
+
+		var finalCommitMessage string
+
+
+
+		if userMessage == "" {
+
+
+
+			finalCommitMessage = suggestedMessage
+
+
+
+			fmt.Println("Using suggested message.")
+
+
+
+		} else {
+
+
+
+			finalCommitMessage = userMessage
+
+
+
+			fmt.Println("Using user-provided message.")
+
+
+
+		}
+
+
+
+	
+
+
+
+		// 7. Ask for confirmation.
+
+
+
+		fmt.Println("\n--- Final Commit Message ---")
+
+
+
+		fmt.Print(finalCommitMessage)
+
+
+
+		fmt.Println("\n----------------------------")
+
+
+
+		fmt.Print("Confirm commit with this message? (y/n): ")
+
+
+
+		confirmInput, _ := reader.ReadString('\n')
+
+
+
+		confirmInput = strings.TrimSpace(strings.ToLower(confirmInput))
+
+
+
+	
+
+
+
+		if confirmInput == "y" {
+
+
+
+			// 8. Commit.
+
+
+
+			fmt.Println("Committing...")
+
+
+
+			commitCmd := execCommand("git", "commit", "-m", finalCommitMessage)
 
 		if err := commitCmd.Run(); err != nil {
 
@@ -302,16 +384,18 @@ func generateCommitMessage(userMessage, diffOutput string, stats []fileChangeSta
 	}
 
 	llmClient, err := newLLMClientFunc(cfg)
-	if err == nil {
-		fmt.Printf("Generating commit message with %s...\n", cfg.Provider)
-		llmMessage, err := llmClient.GenerateCommitMessage(diffOutput, userMessage)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: LLM message generation failed, falling back to simple generator: %v\n", err)
-			return generateSimpleCommitMessage(userMessage, stats)
-		}
-		return llmMessage
+	if err != nil { // Modified: Check for error explicitly here
+		fmt.Fprintf(os.Stderr, "Warning: LLM client could not be initialized (Provider: '%s', Error: %v), falling back to simple generator.\n", cfg.Provider, err)
+		return generateSimpleCommitMessage(userMessage, stats)
 	}
-	return generateSimpleCommitMessage(userMessage, stats)
+
+	fmt.Printf("Generating commit message with %s...\n", cfg.Provider)
+	llmMessage, err := llmClient.GenerateCommitMessage(diffOutput, userMessage)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: LLM message generation failed, falling back to simple generator: %v\n", err)
+		return generateSimpleCommitMessage(userMessage, stats)
+	}
+	return llmMessage
 }
 
 func generateSimpleCommitMessage(userMessage string, stats []fileChangeStats) string {

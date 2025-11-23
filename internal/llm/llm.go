@@ -23,6 +23,17 @@ func NewLLMClient(cfg config.Config) (LLMClient, error) {
 			APIKey:  cfg.APIKey,
 			BaseURL: "https://api.openai.com/v1",
 		}, nil
+	case "openapi":
+		if cfg.OpenAPIEndpoint == "" {
+			return nil, fmt.Errorf("OpenAPI endpoint is not set in config")
+		}
+		if cfg.OpenAPISchemaPath == "" {
+			return nil, fmt.Errorf("OpenAPI schema path is not set in config")
+		}
+		return &OpenAPIClient{
+			Endpoint:  cfg.OpenAPIEndpoint,
+			SchemaPath: cfg.OpenAPISchemaPath,
+		}, nil
 	case "":
 		return nil, fmt.Errorf("no LLM provider configured")
 	default:
@@ -126,4 +137,22 @@ Git Diff:
 	}
 
 	return apiResp.Choices[0].Message.Content, nil
+}
+
+// OpenAPIClient is a client for an OpenAPI-defined LLM.
+type OpenAPIClient struct {
+	Endpoint   string
+	SchemaPath string
+}
+
+// GenerateCommitMessage generates a commit message using an OpenAPI-defined LLM.
+func (c *OpenAPIClient) GenerateCommitMessage(diff, userMessage string) (string, error) {
+	// Placeholder for OpenAPI LLM interaction.
+	// In a real implementation, this would involve:
+	// 1. Loading and parsing the OpenAPI schema from c.SchemaPath.
+	// 2. Identifying the relevant operation for commit message generation.
+	// 3. Constructing a request based on diff and userMessage.
+	// 4. Sending the request to c.Endpoint.
+	// 5. Parsing the response to extract the commit message.
+	return fmt.Sprintf("feat: OpenAPI generated message (from %s with schema %s). User: '%s', Diff: '%s'", c.Endpoint, c.SchemaPath, userMessage, diff), nil
 }

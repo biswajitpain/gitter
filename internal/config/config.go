@@ -9,8 +9,10 @@ import (
 
 // Config holds the configuration for the LLM provider.
 type Config struct {
-	Provider string `json:"provider"`
-	APIKey   string `json:"api_key"`
+	Provider        string `json:"provider"`
+	APIKey          string `json:"api_key"`
+	OpenAPIEndpoint string `json:"openapi_endpoint"`
+	OpenAPISchemaPath string `json:"openapi_schema_path"`
 }
 
 // GetConfigPath returns the path to the configuration file.

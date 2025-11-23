@@ -19,7 +19,7 @@
 
 ### Prerequisites
 
--   [Go](https://golang.org/doc/install) (version 1.18 or higher)
+-   [Go](https://golang.org/doc/install) (version 1.23 or higher)
 -   [Git](https://git-scm.com/downloads)
 
 ### Building from Source
