@@ -16,7 +16,7 @@ import (
 
 var crCmd = &cobra.Command{
 
-	Use:   "cr",
+	Use: "cr",
 
 	Short: "Create a commit with an AI-generated message",
 
@@ -27,10 +27,7 @@ It stages files, generates a diff, and uses an LLM (if configured)
 to create a conventional commit message.`,
 
 	RunE: handleCrCommand,
-
 }
-
-
 
 func init() {
 
@@ -38,21 +35,15 @@ func init() {
 
 }
 
-
-
 // fileChangeStats holds the statistics for a single changed file.
 
 type fileChangeStats struct {
-
-	filePath     string
+	filePath string
 
 	linesChanged int
 
 	charsChanged int
-
 }
-
-
 
 func handleCrCommand(cmd *cobra.Command, args []string) error {
 
@@ -66,11 +57,7 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 	}
 
-
-
 	reader := bufio.NewReader(os.Stdin)
-
-
 
 	// 2. Check for staged changes.
 
@@ -83,8 +70,6 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 		stageAllInput, _ := reader.ReadString('\n')
 
 		stageAllInput = strings.TrimSpace(strings.ToLower(stageAllInput))
-
-
 
 		if stageAllInput == "y" {
 
@@ -110,8 +95,6 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 	}
 
-
-
 	// 3. Get the diff of staged changes.
 
 	fmt.Println("Generating diff...")
@@ -128,8 +111,6 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 	diffOutput := string(diffOutputBytes)
 
-
-
 	if strings.TrimSpace(diffOutput) == "" {
 
 		fmt.Println("No changes to commit.")
@@ -140,777 +121,181 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 	}
 
+	// 4. Parse the diff to get stats.
 
+	stats := parseDiffStats(diffOutput)
 
-		// 4. Parse the diff to get stats.
+	// 5. Generate an initial commit message from LLM (if configured).
 
+	// This will be used as the base for the suggestion.
 
+	var llmGeneratedMessage string
 
-		stats := parseDiffStats(diffOutput)
+	var llmErr error
 
+	llmGeneratedMessage, llmErr = generateCommitMessage("", diffOutput) // Pass empty user message for initial generation
 
+	// 6. Generate the file change statistics message. This is always included.
 
-	
+	statsMessage := generateSimpleCommitMessage("", stats) // User message is empty for stats generation
 
+	// Combine LLM message (if successful) and stats message.
 
+	var suggestedMessage string
 
-			// 5. Generate an initial commit message from LLM (if configured).
+	var finalTitle string
 
+	var finalBody strings.Builder
 
+	if llmErr == nil {
 
-	
+		// Attempt to parse title from LLM message
 
+		llmMessageLines := strings.Split(llmGeneratedMessage, "\n")
 
+		firstLine := strings.TrimSpace(llmMessageLines[0])
 
-			// This will be used as the base for the suggestion.
+		// Check if first line looks like a conventional commit title (e.g., "type: subject")
 
+		if len(llmMessageLines) > 0 && strings.Contains(firstLine, ":") {
 
+			finalTitle = firstLine
 
-	
+			// The rest of the LLM message becomes part of the body
 
+			if len(llmMessageLines) > 1 {
 
+				for _, line := range llmMessageLines[1:] {
 
-			var llmGeneratedMessage string
+					line = strings.TrimSpace(line)
 
+					if line != "" {
 
-
-	
-
-
-
-			var llmErr error
-
-
-
-	
-
-
-
-			llmGeneratedMessage, llmErr = generateCommitMessage("", diffOutput) // Pass empty user message for initial generation
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-			// 6. Generate the file change statistics message. This is always included.
-
-
-
-	
-
-
-
-			statsMessage := generateSimpleCommitMessage("", stats) // User message is empty for stats generation
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				// Combine LLM message (if successful) and stats message.
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				var suggestedMessage string
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				var messageBody strings.Builder
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-			
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				if llmErr == nil {
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-					// Format LLM message as an unordered list if it's multi-line
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-					llmMessageLines := strings.Split(llmGeneratedMessage, "\n")
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-					for _, line := range llmMessageLines {
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-						line = strings.TrimSpace(line)
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-						if line != "" {
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-							messageBody.WriteString("- " + line + "\n")
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-						}
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
+						finalBody.WriteString("- " + line + "\n")
 
 					}
 
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				} else {
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-					// If LLM generation failed, use a simple default message and log the error
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-					fmt.Fprintf(os.Stderr, "Warning: LLM commit message generation failed: %v. Using simple default message.\n", llmErr)
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-					defaultMsg := createDefaultCommitMessage()
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-					if defaultMsg != "" {
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-						messageBody.WriteString("- " + defaultMsg + "\n")
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-					}
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
 				}
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-			
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				// Append stats message, ensuring a blank line separates them if both exist
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				if messageBody.Len() > 0 && statsMessage != "" {
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-					messageBody.WriteString("\n")
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				}
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				messageBody.WriteString(statsMessage)
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-			
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				suggestedMessage = messageBody.String()
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-			
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				// 7. Ask the user for a commit message, providing the suggestion.
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-				fmt.Printf("Please enter a commit message (or press Enter to use the suggestion):\n\n")
-
-
-
-	
-
-
-
-			fmt.Printf("--- Suggested Commit Message ---\n%s\n--------------------------------\n", suggestedMessage)
-
-
-
-	
-
-
-
-			fmt.Print("> ")
-
-
-
-	
-
-
-
-			userProvidedMessage, _ := reader.ReadString('\n')
-
-
-
-	
-
-
-
-			userProvidedMessage = strings.TrimSpace(userProvidedMessage)
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-			var finalCommitMessage string
-
-
-
-	
-
-
-
-			if userProvidedMessage == "" {
-
-
-
-	
-
-
-
-				finalCommitMessage = suggestedMessage
-
-
-
-	
-
-
-
-				fmt.Println("Using suggested message.")
-
-
-
-	
-
-
-
-			} else {
-
-
-
-	
-
-
-
-				finalCommitMessage = userProvidedMessage
-
-
-
-	
-
-
-
-				fmt.Println("Using user-provided message.")
-
-
-
-	
-
-
 
 			}
 
+		} else {
 
+			// If no clear title, use a generic one and put the whole LLM message in the body
 
-	
+			finalTitle = "feat: AI generated commit message"
 
+			for _, line := range llmMessageLines {
 
+				line = strings.TrimSpace(line)
 
-		
+				if line != "" {
 
+					finalBody.WriteString("- " + line + "\n")
 
+				}
 
-	
+			}
 
+		}
 
+	} else {
 
-			// 8. Ask for confirmation.
+		// If LLM generation failed, use a simple default title and body, and log the error
 
+		fmt.Fprintf(os.Stderr, "Warning: LLM commit message generation failed: %v. Using simple default message.\n", llmErr)
 
+		defaultMsg := createDefaultCommitMessage() // This now returns "title\n\nbody"
 
-	
+		defaultLines := strings.SplitN(defaultMsg, "\n\n", 2)
 
+		finalTitle = defaultLines[0]
 
+		if len(defaultLines) > 1 {
 
-			fmt.Println("\n--- Final Commit Message ---")
+			for _, line := range strings.Split(defaultLines[1], "\n") {
 
+				line = strings.TrimSpace(line)
 
+				if line != "" {
 
-	
+					finalBody.WriteString("- " + line + "\n")
 
+				}
 
+			}
 
-			fmt.Print(finalCommitMessage)
+		}
 
+	}
 
+	// Append stats message
 
-	
+	if finalBody.Len() > 0 && statsMessage != "" {
 
+		finalBody.WriteString("\n") // Add a blank line between existing body and stats
 
+	}
 
-			fmt.Println("\n----------------------------")
+	finalBody.WriteString(statsMessage)
 
+	suggestedMessage = finalTitle
 
+	if finalBody.Len() > 0 {
 
-	
+		suggestedMessage += "\n\n" + finalBody.String()
 
+	}
 
+	// 7. Ask the user for a commit message, providing the suggestion.
 
-			fmt.Print("Confirm commit with this message? (y/n): ")
+	fmt.Printf("Please enter a commit message (or press Enter to use the suggestion):\n\n")
 
+	fmt.Printf("--- Suggested Commit Message ---\n%s\n--------------------------------\n", suggestedMessage)
 
+	fmt.Print("> ")
 
-	
+	userProvidedMessage, _ := reader.ReadString('\n')
 
+	userProvidedMessage = strings.TrimSpace(userProvidedMessage)
 
+	var finalCommitMessage string
 
-			confirmInput, _ := reader.ReadString('\n')
+	if userProvidedMessage == "" {
 
+		finalCommitMessage = suggestedMessage
 
+		fmt.Println("Using suggested message.")
 
-	
+	} else {
 
+		finalCommitMessage = userProvidedMessage
 
+		fmt.Println("Using user-provided message.")
 
-			confirmInput = strings.TrimSpace(strings.ToLower(confirmInput))
+	}
 
+	// 8. Ask for confirmation.
 
+	fmt.Println("\n--- Final Commit Message ---")
 
-	
+	fmt.Print(finalCommitMessage)
 
+	fmt.Println("\n----------------------------")
 
+	fmt.Print("Confirm commit with this message? (y/n): ")
 
-		if confirmInput == "y" {
+	confirmInput, _ := reader.ReadString('\n')
 
+	confirmInput = strings.TrimSpace(strings.ToLower(confirmInput))
 
+	if confirmInput == "y" {
 
-			// 8. Commit.
+		// 8. Commit.
 
+		fmt.Println("Committing...")
 
-
-			fmt.Println("Committing...")
-
-
-
-			commitCmd := execCommand("git", "commit", "-m", finalCommitMessage)
+		commitCmd := execCommand("git", "commit", "-m", finalCommitMessage)
 
 		if err := commitCmd.Run(); err != nil {
 
@@ -958,7 +343,6 @@ func parseDiffStats(diffOutput string) []fileChangeStats {
 			continue
 		}
 
-	
 		lines := strings.Split(fileDiff, "\n")
 		var currentFile string
 		var linesChanged, charsChanged int
@@ -998,12 +382,12 @@ func createDefaultCommitMessage() string {
 	repoPath, err := execCommand("git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not determine repo name for default commit message: %v\n", err)
-		return "new git commit" // Fallback default
+		return "chore: new git commit\n\n- Repository name could not be determined." // Fallback default with blank line and body
 	}
 	repoName := filepath.Base(strings.TrimSpace(string(repoPath)))
 
 	dateStr := timeNow().Format("2006-01-02")
-	return fmt.Sprintf("chore: new git commit on %s %s", repoName, dateStr)
+	return fmt.Sprintf("chore: new git commit on %s\n\n- Committed on %s.", repoName, dateStr)
 }
 
 // newLLMClientFunc is a package-level variable to allow mocking llm.NewLLMClient in tests.
