@@ -8,11 +8,11 @@
 -   **`cr` (Commit Review) Command**: A custom command that streamlines the commit process:
     -   Stages all current changes (`git add .`).
     -   Generates a comprehensive diff of staged changes.
-    -   Prompts you for a brief, high-level description of your changes.
-    -   Generates a detailed commit message based on the diff and your input (either via LLM or a structured template).
+    -   Presents an AI-generated commit message (if LLM is configured) as a suggestion, always including detailed file change statistics (lines and characters changed), and explicitly excluding `/dev/null` paths.
+    -   Allows you to accept the suggestion or provide your own message.
     -   Asks for your confirmation before committing.
     -   Offers to unstage changes if the commit is cancelled.
--   **LLM-Powered Commit Message Generation**: Integrate with Large Language Models (LLMs) like OpenAI to generate high-quality, conventional commit messages.
+-   **LLM-Powered Commit Message Generation**: Integrate with Large Language Models (LLMs) like OpenAI (using its text completion API with `gpt-4.1`) and Google Gemini (using `gemini-2.5-flash`) to generate high-quality, conventional commit messages.
 -   **Configurable**: Easily set up your preferred LLM provider and API key.
 
 ## Installation
@@ -91,9 +91,9 @@ gitter cr
 
 1.  `gitter` will automatically stage all your current changes (`git add .`).
 2.  It will then generate a diff of these staged changes.
-3.  You will be prompted to enter a brief, high-level description of your changes. This serves as a hint for the commit message generation.
-4.  `gitter` will then generate a more detailed commit message based on the diff and your input. If an LLM is configured, it will attempt to use it; otherwise, it will use a structured template.
-5.  The generated message will be displayed, and you'll be asked to confirm it.
+3.  An AI-generated commit message (if an LLM is configured) or a simple default will be presented as a suggestion. This suggestion will *always* include detailed file change statistics (lines and characters changed), with `/dev/null` paths explicitly filtered out.
+4.  You can accept the suggested message (by pressing Enter) or provide your own message.
+5.  The final commit message will be displayed, and you'll be asked to confirm it.
 6.  If you confirm (`y`), the changes will be committed with the generated message.
 7.  If you cancel (`n`), the commit will be aborted, and you'll be given the option to unstage your changes.
 
@@ -114,7 +114,16 @@ gitter config --provider openai --api-key "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
 -   Replace `"sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"` with your actual OpenAI API key.
--   This command creates a configuration file at `~/.config/gitter/config.json` (or creates the directory if it doesn't exist) and stores your provider and API key. The file permissions are set to `0600` for security.
+
+**Example for Gemini:**
+
+```bash
+gitter config --provider gemini --api-key "AIzaSyDZktLcrGRMTrRi7V-ZXXarv0MGpVbHW8A"
+```
+
+-   Replace `"AIzaSyDZktLcrGRMTrRi7V-ZXXarv0MGpVbHW8A"` with your actual Gemini API key.
+
+-   These commands create a configuration file at `~/.config/gitter/config.json` (or creates the directory if it doesn't exist) and stores your provider and API key. The file permissions are set to `0600` for security.
 
 **LLM Fallback:**
 
