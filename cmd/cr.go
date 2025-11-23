@@ -226,159 +226,7 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 
 
-			// Combine LLM message (if successful) and stats message.
-
-
-
-	
-
-
-
-			var suggestedMessage string
-
-
-
-	
-
-
-
-			if llmErr == nil {
-
-
-
-	
-
-
-
-				suggestedMessage = llmGeneratedMessage
-
-
-
-	
-
-
-
-				// Append stats message, ensuring a blank line separates them if both exist
-
-
-
-	
-
-
-
-				if suggestedMessage != "" && statsMessage != "" {
-
-
-
-	
-
-
-
-					suggestedMessage += "\n\n" + statsMessage
-
-
-
-	
-
-
-
-				} else {
-
-
-
-	
-
-
-
-					suggestedMessage += statsMessage
-
-
-
-	
-
-
-
-				}
-
-
-
-	
-
-
-
-			} else {
-
-
-
-	
-
-
-
-				// If LLM generation failed, use a simple default message and log the error
-
-
-
-	
-
-
-
-				fmt.Fprintf(os.Stderr, "Warning: LLM commit message generation failed: %v. Using simple default message.\n", llmErr)
-
-
-
-	
-
-
-
-				suggestedMessage = createDefaultCommitMessage()
-
-
-
-	
-
-
-
-				if suggestedMessage != "" && statsMessage != "" {
-
-
-
-	
-
-
-
-					suggestedMessage += "\n\n" + statsMessage
-
-
-
-	
-
-
-
-				} else {
-
-
-
-	
-
-
-
-					suggestedMessage += statsMessage
-
-
-
-	
-
-
-
-				}
-
-
-
-	
-
-
-
-			}
+				// Combine LLM message (if successful) and stats message.
 
 
 
@@ -394,7 +242,7 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 
 
-			// 7. Ask the user for a commit message, providing the suggestion.
+				var suggestedMessage string
 
 
 
@@ -402,7 +250,479 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 
 
-			fmt.Printf("Please enter a commit message (or press Enter to use the suggestion):\n\n")
+		
+
+
+
+	
+
+
+
+				var messageBody strings.Builder
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+			
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+				if llmErr == nil {
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+					// Format LLM message as an unordered list if it's multi-line
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+					llmMessageLines := strings.Split(llmGeneratedMessage, "\n")
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+					for _, line := range llmMessageLines {
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+						line = strings.TrimSpace(line)
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+						if line != "" {
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+							messageBody.WriteString("- " + line + "\n")
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+						}
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+					}
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+				} else {
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+					// If LLM generation failed, use a simple default message and log the error
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+					fmt.Fprintf(os.Stderr, "Warning: LLM commit message generation failed: %v. Using simple default message.\n", llmErr)
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+					defaultMsg := createDefaultCommitMessage()
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+					if defaultMsg != "" {
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+						messageBody.WriteString("- " + defaultMsg + "\n")
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+					}
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+				}
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+			
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+				// Append stats message, ensuring a blank line separates them if both exist
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+				if messageBody.Len() > 0 && statsMessage != "" {
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+					messageBody.WriteString("\n")
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+				}
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+				messageBody.WriteString(statsMessage)
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+			
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+				suggestedMessage = messageBody.String()
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+			
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+				// 7. Ask the user for a commit message, providing the suggestion.
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+				fmt.Printf("Please enter a commit message (or press Enter to use the suggestion):\n\n")
 
 
 
