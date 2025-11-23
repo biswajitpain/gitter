@@ -1003,7 +1003,7 @@ func createDefaultCommitMessage() string {
 	repoName := filepath.Base(strings.TrimSpace(string(repoPath)))
 
 	dateStr := timeNow().Format("2006-01-02")
-	return fmt.Sprintf("new git commit on %s %s", repoName, dateStr)
+	return fmt.Sprintf("chore: new git commit on %s %s", repoName, dateStr)
 }
 
 // newLLMClientFunc is a package-level variable to allow mocking llm.NewLLMClient in tests.
