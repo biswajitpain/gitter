@@ -21,7 +21,8 @@ var configCmd = &cobra.Command{
 Currently supports OpenAI.
 
 Example:
-gitter config --provider openai --api-key sk-...`,
+gitter config --provider openai --api-key sk-...
+gitter config --provider gemini --api-key your-gemini-api-key`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if provider == "" && apiKey == "" {
 			cmd.Help()
@@ -58,6 +59,6 @@ gitter config --provider openai --api-key sk-...`,
 func init() {
 	rootCmd.AddCommand(configCmd)
 
-	configCmd.Flags().StringVarP(&provider, "provider", "p", "", "The LLM provider (e.g., 'openai')")
+	configCmd.Flags().StringVarP(&provider, "provider", "p", "", "The LLM provider (e.g., 'openai', 'gemini')")
 	configCmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "The API key for the LLM provider")
 }
