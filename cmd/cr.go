@@ -154,15 +154,7 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 
 
-		// 5. Generate an initial commit message (LLM or simple).
-
-
-
-		// This will be used as a suggestion to the user.
-
-
-
-		suggestedMessage := generateCommitMessage("", diffOutput, stats) // Pass empty user message for initial generation
+			// 5. Generate an initial commit message from LLM (if configured).
 
 
 
@@ -170,27 +162,7 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 
 
-		// 6. Ask the user for a commit message, providing the suggestion.
-
-
-
-		fmt.Printf("Please enter a commit message (or press Enter to use the suggestion):\n\n")
-
-
-
-		fmt.Printf("--- Suggested Commit Message ---\n%s\n--------------------------------\n", suggestedMessage)
-
-
-
-		fmt.Print("> ")
-
-
-
-		userMessage, _ := reader.ReadString('\n')
-
-
-
-		userMessage = strings.TrimSpace(userMessage)
+			// This will be used as the base for the suggestion.
 
 
 
@@ -198,35 +170,7 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 
 
-		var finalCommitMessage string
-
-
-
-		if userMessage == "" {
-
-
-
-			finalCommitMessage = suggestedMessage
-
-
-
-			fmt.Println("Using suggested message.")
-
-
-
-		} else {
-
-
-
-			finalCommitMessage = userMessage
-
-
-
-			fmt.Println("Using user-provided message.")
-
-
-
-		}
+			var llmGeneratedMessage string
 
 
 
@@ -234,31 +178,399 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 
 
-		// 7. Ask for confirmation.
+			var llmErr error
 
 
 
-		fmt.Println("\n--- Final Commit Message ---")
+	
 
 
 
-		fmt.Print(finalCommitMessage)
+			llmGeneratedMessage, llmErr = generateCommitMessage("", diffOutput) // Pass empty user message for initial generation
 
 
 
-		fmt.Println("\n----------------------------")
+	
 
 
 
-		fmt.Print("Confirm commit with this message? (y/n): ")
+		
 
 
 
-		confirmInput, _ := reader.ReadString('\n')
+	
 
 
 
-		confirmInput = strings.TrimSpace(strings.ToLower(confirmInput))
+			// 6. Generate the file change statistics message. This is always included.
+
+
+
+	
+
+
+
+			statsMessage := generateSimpleCommitMessage("", stats) // User message is empty for stats generation
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+			// Combine LLM message (if successful) and stats message.
+
+
+
+	
+
+
+
+			var suggestedMessage string
+
+
+
+	
+
+
+
+			if llmErr == nil {
+
+
+
+	
+
+
+
+				suggestedMessage = llmGeneratedMessage
+
+
+
+	
+
+
+
+				// Append stats message, ensuring a blank line separates them if both exist
+
+
+
+	
+
+
+
+				if suggestedMessage != "" && statsMessage != "" {
+
+
+
+	
+
+
+
+					suggestedMessage += "\n\n" + statsMessage
+
+
+
+	
+
+
+
+				} else {
+
+
+
+	
+
+
+
+					suggestedMessage += statsMessage
+
+
+
+	
+
+
+
+				}
+
+
+
+	
+
+
+
+			} else {
+
+
+
+	
+
+
+
+				// If LLM generation failed, use a simple default message and log the error
+
+
+
+	
+
+
+
+				fmt.Fprintf(os.Stderr, "Warning: LLM commit message generation failed: %v. Using simple default message.\n", llmErr)
+
+
+
+	
+
+
+
+				suggestedMessage = createDefaultCommitMessage()
+
+
+
+	
+
+
+
+				if suggestedMessage != "" && statsMessage != "" {
+
+
+
+	
+
+
+
+					suggestedMessage += "\n\n" + statsMessage
+
+
+
+	
+
+
+
+				} else {
+
+
+
+	
+
+
+
+					suggestedMessage += statsMessage
+
+
+
+	
+
+
+
+				}
+
+
+
+	
+
+
+
+			}
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+			// 7. Ask the user for a commit message, providing the suggestion.
+
+
+
+	
+
+
+
+			fmt.Printf("Please enter a commit message (or press Enter to use the suggestion):\n\n")
+
+
+
+	
+
+
+
+			fmt.Printf("--- Suggested Commit Message ---\n%s\n--------------------------------\n", suggestedMessage)
+
+
+
+	
+
+
+
+			fmt.Print("> ")
+
+
+
+	
+
+
+
+			userProvidedMessage, _ := reader.ReadString('\n')
+
+
+
+	
+
+
+
+			userProvidedMessage = strings.TrimSpace(userProvidedMessage)
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+			var finalCommitMessage string
+
+
+
+	
+
+
+
+			if userProvidedMessage == "" {
+
+
+
+	
+
+
+
+				finalCommitMessage = suggestedMessage
+
+
+
+	
+
+
+
+				fmt.Println("Using suggested message.")
+
+
+
+	
+
+
+
+			} else {
+
+
+
+	
+
+
+
+				finalCommitMessage = userProvidedMessage
+
+
+
+	
+
+
+
+				fmt.Println("Using user-provided message.")
+
+
+
+	
+
+
+
+			}
+
+
+
+	
+
+
+
+		
+
+
+
+	
+
+
+
+			// 8. Ask for confirmation.
+
+
+
+	
+
+
+
+			fmt.Println("\n--- Final Commit Message ---")
+
+
+
+	
+
+
+
+			fmt.Print(finalCommitMessage)
+
+
+
+	
+
+
+
+			fmt.Println("\n----------------------------")
+
+
+
+	
+
+
+
+			fmt.Print("Confirm commit with this message? (y/n): ")
+
+
+
+	
+
+
+
+			confirmInput, _ := reader.ReadString('\n')
+
+
+
+	
+
+
+
+			confirmInput = strings.TrimSpace(strings.ToLower(confirmInput))
 
 
 
@@ -377,25 +689,25 @@ func createDefaultCommitMessage() string {
 // newLLMClientFunc is a package-level variable to allow mocking llm.NewLLMClient in tests.
 var newLLMClientFunc = llm.NewLLMClient
 
-func generateCommitMessage(userMessage, diffOutput string, stats []fileChangeStats) string {
+func generateCommitMessage(userMessage, diffOutput string) (string, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not load config, using simple message generator: %v\n", err)
+		// Log the warning to stderr, but don't fail the LLM generation process itself
+		// as we now expect a separate fallback/combining logic in handleCrCommand.
+		fmt.Fprintf(os.Stderr, "Warning: could not load config for LLM generation: %v\n", err)
 	}
 
 	llmClient, err := newLLMClientFunc(cfg)
-	if err != nil { // Modified: Check for error explicitly here
-		fmt.Fprintf(os.Stderr, "Warning: LLM client could not be initialized (Provider: '%s', Error: %v), falling back to simple generator.\n", cfg.Provider, err)
-		return generateSimpleCommitMessage(userMessage, stats)
+	if err != nil {
+		return "", fmt.Errorf("LLM client could not be initialized (Provider: '%s', Error: %w)", cfg.Provider, err)
 	}
 
 	fmt.Printf("Generating commit message with %s...\n", cfg.Provider)
 	llmMessage, err := llmClient.GenerateCommitMessage(diffOutput, userMessage)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: LLM message generation failed, falling back to simple generator: %v\n", err)
-		return generateSimpleCommitMessage(userMessage, stats)
+		return "", fmt.Errorf("LLM message generation failed: %w", err)
 	}
-	return llmMessage
+	return llmMessage, nil
 }
 
 func generateSimpleCommitMessage(userMessage string, stats []fileChangeStats) string {
