@@ -3,11 +3,12 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"github.com/biswajitpain/gitter/internal/config"
-	"github.com/biswajitpain/gitter/internal/llm"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/biswajitpain/gitter/internal/config"
+	"github.com/biswajitpain/gitter/internal/llm"
 
 	"github.com/spf13/cobra"
 )
@@ -91,7 +92,34 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 	} else {
 
-		fmt.Println("Working on currently staged changes.")
+		// Files are already staged, ask user if they want to continue with staged files or add all files
+		fmt.Print("Files are already staged. Continue with staged files (c) or add all files (a)? (c/a): ")
+
+		stageChoiceInput, _ := reader.ReadString('\n')
+
+		stageChoiceInput = strings.TrimSpace(strings.ToLower(stageChoiceInput))
+
+		if stageChoiceInput == "a" {
+
+			fmt.Println("Staging all changed files...")
+
+			if err := execCommand("git", "add", ".").Run(); err != nil {
+
+				return fmt.Errorf("error staging changes: %w", err)
+
+			}
+
+		} else if stageChoiceInput == "c" {
+
+			fmt.Println("Continuing with currently staged changes.")
+
+		} else {
+
+			fmt.Println("Operation cancelled. No changes were made.")
+
+			return nil
+
+		}
 
 	}
 
