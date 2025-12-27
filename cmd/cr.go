@@ -61,10 +61,11 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 	reader := bufio.NewReader(os.Stdin)
 
 	// 2. Check for staged changes.
+	// git diff --cached --quiet exits with 0 if no staged changes, 1 if there are staged changes
 
 	stagedCheckCmd := execCommand("git", "diff", "--cached", "--quiet")
 
-	if stagedCheckCmd.Run() != nil { // Exits with 1 if no staged changes
+	if stagedCheckCmd.Run() == nil { // Exits with 0 if no staged changes
 
 		fmt.Print("No files are currently staged. Would you like to stage all changed files? (y/n): ")
 
@@ -190,20 +191,14 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 			finalTitle = firstLine
 
 			// The rest of the LLM message becomes part of the body
+			// Preserve markdown formatting instead of converting everything to simple bullets
 
 			if len(llmMessageLines) > 1 {
 
-				for _, line := range llmMessageLines[1:] {
-
-					line = strings.TrimSpace(line)
-
-					if line != "" {
-
-						finalBody.WriteString("- " + line + "\n")
-
-					}
-
-				}
+				bodyLines := llmMessageLines[1:]
+				bodyText := strings.Join(bodyLines, "\n")
+				formattedBody := formatMarkdownFriendly(bodyText)
+				finalBody.WriteString(formattedBody)
 
 			}
 
@@ -213,17 +208,9 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 			finalTitle = "feat: AI generated commit message"
 
-			for _, line := range llmMessageLines {
-
-				line = strings.TrimSpace(line)
-
-				if line != "" {
-
-					finalBody.WriteString("- " + line + "\n")
-
-				}
-
-			}
+			bodyText := strings.Join(llmMessageLines, "\n")
+			formattedBody := formatMarkdownFriendly(bodyText)
+			finalBody.WriteString(formattedBody)
 
 		}
 
@@ -241,17 +228,8 @@ func handleCrCommand(cmd *cobra.Command, args []string) error {
 
 		if len(defaultLines) > 1 {
 
-			for _, line := range strings.Split(defaultLines[1], "\n") {
-
-				line = strings.TrimSpace(line)
-
-				if line != "" {
-
-					finalBody.WriteString("- " + line + "\n")
-
-				}
-
-			}
+			formattedBody := formatMarkdownFriendly(defaultLines[1])
+			finalBody.WriteString(formattedBody)
 
 		}
 
@@ -440,6 +418,51 @@ func generateCommitMessage(userMessage, diffOutput string) (string, error) {
 		return "", fmt.Errorf("LLM message generation failed: %w", err)
 	}
 	return llmMessage, nil
+}
+
+// formatMarkdownFriendly formats commit message body to be markdown-friendly
+// It normalizes bullet points, preserves indentation, and maintains markdown formatting
+func formatMarkdownFriendly(body string) string {
+	lines := strings.Split(body, "\n")
+	var formattedLines []string
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if trimmed == "" {
+			formattedLines = append(formattedLines, "")
+			continue
+		}
+
+		// Handle various bullet point formats and convert to consistent markdown
+		// Priority order matters - check more specific patterns first
+		if strings.HasPrefix(trimmed, "- *   **") {
+			// Handle lines like "- *   **Text**: description" - convert to nested bullet
+			rest := strings.TrimPrefix(trimmed, "- *   ")
+			formattedLines = append(formattedLines, "  - "+rest)
+		} else if strings.HasPrefix(trimmed, "- *") {
+			// Handle lines like "- *   Text" or "- * Text" - convert to nested bullet
+			rest := strings.TrimPrefix(trimmed, "- *")
+			rest = strings.TrimSpace(rest)
+			formattedLines = append(formattedLines, "  - "+rest)
+		} else if strings.HasPrefix(trimmed, "*   **") {
+			// Handle lines like "*   **Text**: description" - convert to nested bullet
+			rest := strings.TrimPrefix(trimmed, "*   ")
+			formattedLines = append(formattedLines, "  - "+rest)
+		} else if strings.HasPrefix(trimmed, "* ") {
+			// Convert asterisk bullet to dash bullet (top-level)
+			rest := strings.TrimPrefix(trimmed, "* ")
+			formattedLines = append(formattedLines, "- "+rest)
+		} else if strings.HasPrefix(trimmed, "- ") {
+			// Already a dash bullet, preserve it as-is
+			formattedLines = append(formattedLines, trimmed)
+		} else {
+			// Regular line, preserve as is (might be a continuation or non-bullet line)
+			formattedLines = append(formattedLines, trimmed)
+		}
+	}
+
+	return strings.Join(formattedLines, "\n")
 }
 
 func generateSimpleCommitMessage(userMessage string, stats []fileChangeStats) string {
